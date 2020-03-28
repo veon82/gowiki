@@ -6,11 +6,13 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"path/filepath"
 	"regexp"
 )
 
 // global variables
-var templates = template.Must(template.ParseFiles("edit.html", "view.html"))
+var templates = template.Must(template.ParseFiles(
+	filepath.Join("tmpl", "edit.html"), filepath.Join("tmpl", "view.html")))
 var validPath = regexp.MustCompile("^/(edit|save|view)/([a-zA-Z0-9]+)$")
 
 type Page struct {
@@ -19,8 +21,19 @@ type Page struct {
 }
 
 func (p *Page) save() error {
-	filename := p.Title + ".txt"
+	filename := filepath.Join("data", p.Title+".txt")
 	return ioutil.WriteFile(filename, p.Body, 0600)
+}
+
+func loadPage(title string) (*Page, error) {
+	filename := filepath.Join("data", title+".txt")
+	log.Printf("loading file %s\n", filename)
+
+	body, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+	return &Page{Title: title, Body: body}, nil
 }
 
 func getTitle(w http.ResponseWriter, r *http.Request) (string, error) {
@@ -81,23 +94,7 @@ func makeHandler(fn func(http.ResponseWriter, *http.Request, string)) http.Handl
 	}
 }
 
-func loadPage(title string) (*Page, error) {
-	filename := title + ".txt"
-	log.Printf("loading file %s\n", filename)
-
-	body, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-	return &Page{Title: title, Body: body}, nil
-}
-
 func main() {
-	// p1 := &Page{Title: "TestPage", Body: []byte("This is a simple page.")}
-	// p1.save()
-	//p2, _ := loadPage("TestPage")
-	//fmt.Println(string(p2.Body))
-
 	http.HandleFunc("/view/", makeHandler(viewHandler))
 	http.HandleFunc("/edit/", makeHandler(editHandler))
 	http.HandleFunc("/save/", makeHandler(saveHandler))
